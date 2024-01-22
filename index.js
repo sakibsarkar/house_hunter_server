@@ -62,6 +62,28 @@ async function run() {
         // await client.db("admin").command({ ping: 1 });
 
 
+        const varifyOwner = async (req, res, next) => {
+            const { email } = req.USER || {}
+            console.log(email);
+            if (!email) {
+                return res.status(401).send({ message: "unauthorized access" })
+            }
+
+            const projection = { _id: 0, role: 1 }
+            const { role } = await userCollection.findOne({ email: email }, { projection })
+            if (!role) {
+                return res.status(401).send({ message: "unauthorized access" })
+            }
+
+            if (role !== "House Owner") {
+                return res.status(403).send({ message: "Forbiden access" })
+
+            }
+            next()
+
+
+        }
+
         // --------Auth related Api -------
 
         // auth token
@@ -152,7 +174,6 @@ async function run() {
         // ---------- rooms related api ----------
         app.get("/api/all/rooms", async (req, res) => {
             const { city, bedrooms, bathrooms, room_size, availability, price_range, search, currentPage = 0 } = req.query
-
             const minPrice = parseInt(price_range?.split("@")[0])
             const maxPrice = parseInt(price_range?.split("@")[1])
 
@@ -160,6 +181,7 @@ async function run() {
 
             let find = {}
             const skip = parseInt(currentPage) * 10
+
 
             if (city) {
                 let replica = { ...find, city: new RegExp(city, "i") }
@@ -217,12 +239,37 @@ async function run() {
 
             }
 
-            const model = roomsCollection.find(find)
-            const result = await model.skip(skip).limit(0).toArray()
+            const result = await roomsCollection.find(find).skip(skip).limit(10).toArray()
             const totalData = (await roomsCollection.find(find).toArray()).length
             console.log(totalData);
             res.send([result, totalData])
 
+        })
+
+
+        // addd rooom
+        app.post("/api/add_room", varifyToken, varifyOwner, async (req, res) => {
+            const { body } = req
+            const result = await roomsCollection.insertOne(body)
+            res.send(result)
+        })
+
+        // get owners created room
+        app.get("/api/owner_rooms", varifyToken, varifyOwner, async (req, res) => {
+            const { email } = req.USER
+            const { isActive } = req.query
+            let find = { ownedBy: email }
+            const acitveBoolen = Boolean(isActive)
+            if (acitveBoolen) {
+                const replica = {
+                    ...find,
+                    isActive: isActive
+                }
+                find = replica
+            }
+            console.log(find);
+            const result = await roomsCollection.find(find).toArray()
+            res.send(result)
         })
 
 
