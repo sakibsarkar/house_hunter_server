@@ -31,9 +31,28 @@ const client = new MongoClient(uri, {
 });
 
 
+
+const varifyToken = (req, res, next) => {
+    const token = req.cookies.token
+    if (!token) {
+        return res.send({})
+    }
+    jwt.verify(token, process.env.ACCESS_TOKEN, (err, decode) => {
+        if (err) {
+            return res.status(403).send({ message: "unauthorized access" })
+
+        }
+        req.USER = decode
+        next()
+    })
+}
+
+
+
 // collections 
 
 const userCollection = client.db("HouseHunter").collection("user")
+const roomsCollection = client.db("HouseHunter").collection("rooms")
 
 async function run() {
     try {
@@ -63,7 +82,7 @@ async function run() {
         })
 
         app.post("/api/register", async (req, res) => {
-            const { email, password, role, name } = req.body
+            const { email, password, role, name, phoneNumber } = req.body
             console.log(req.body);
 
             if (!req.body) {
@@ -81,6 +100,7 @@ async function run() {
             const userObj = {
                 name,
                 email,
+                phoneNumber,
                 password: hashedPassword,
                 role
 
@@ -112,6 +132,98 @@ async function run() {
             res.send(user)
         })
 
+
+        // get user onAuthchange
+        app.get("/api/authChange", varifyToken, async (req, res) => {
+            const { email, password } = req.USER || {}
+
+            const user = await userCollection.findOne({ email: email })
+            if (!user) {
+                return res.status(403).send({ message: "unauthorized access" })
+            }
+            const mathed = await bcrypt.compare(password, user?.password)
+            if (!mathed) {
+                return res.status(403).send({ message: "unauthorized access" })
+            }
+            res.send(user)
+        })
+
+
+        // ---------- rooms related api ----------
+        app.get("/api/all/rooms", async (req, res) => {
+            const { city, bedrooms, bathrooms, room_size, availability, price_range, search, currentPage = 0 } = req.query
+
+            const minPrice = parseInt(price_range?.split("@")[0])
+            const maxPrice = parseInt(price_range?.split("@")[1])
+
+
+
+            let find = {}
+            const skip = parseInt(currentPage) * 10
+
+            if (city) {
+                let replica = { ...find, city: new RegExp(city, "i") }
+                find = replica
+
+            }
+
+            if (bedrooms) {
+                let replica = { ...find, bedrooms: parseInt(bedrooms) }
+                find = replica
+            }
+            if (bathrooms) {
+                let replica = { ...find, bathrooms: parseInt(bathrooms) }
+                find = replica
+            }
+
+            if (room_size) {
+                let replica = {
+                    ...find,
+                    room_size: { $gte: parseInt(room_size) }
+                }
+
+                find = replica
+            }
+
+            if (availability) {
+                let replica = {
+                    ...find,
+                    availability: availability
+                }
+
+                find = replica
+            }
+
+            if (price_range) {
+                let replica = {
+                    ...find,
+                    rent_per_month: {
+                        $gte: minPrice,
+                        $lte: maxPrice
+                    }
+                }
+
+                find = replica
+            }
+
+
+            if (search) {
+                let replica = {
+                    ...find,
+                    name: new RegExp(search, "i")
+                }
+                find = replica
+
+
+            }
+
+            const model = roomsCollection.find(find)
+            const result = await model.skip(skip).limit(0).toArray()
+            const totalData = (await roomsCollection.find(find).toArray()).length
+            console.log(totalData);
+            res.send([result, totalData])
+
+        })
 
 
 
