@@ -42,10 +42,12 @@ async function run() {
         // Send a ping to confirm a successful connection
         // await client.db("admin").command({ ping: 1 });
 
+
+        // --------Auth related Api -------
+
         // auth token
         app.post("/api/token", async (req, res) => {
             const userData = req.body
-            console.log(userData);
             const yearInSecond = 365 * 24 * 60 * 60 //365 day in second
             const expireDate = new Date(Date.now() + yearInSecond * 1000)
 
@@ -87,6 +89,27 @@ async function run() {
 
             const result = await userCollection.insertOne(userObj)
             res.send(result)
+        })
+
+
+        // log in
+        app.post("/api/login", async (req, res) => {
+            const { email, password } = req.body
+            if (!email || !password) {
+                return
+            }
+
+            const user = await userCollection.findOne({ email: email })
+            console.log(user);
+            if (!user) {
+                return res.send({ found: false })
+            }
+            const mathed = await bcrypt.compare(password, user?.password)
+            if (!mathed) {
+                return res.send({ mathed: false })
+            }
+
+            res.send(user)
         })
 
 
