@@ -6,7 +6,7 @@ const app = express()
 const bcrypt = require('bcryptjs');
 const cookieParser = require("cookie-parser")
 const port = process.PORT || 5000
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 
 
@@ -64,7 +64,6 @@ async function run() {
 
         const varifyOwner = async (req, res, next) => {
             const { email } = req.USER || {}
-            console.log(email);
             if (!email) {
                 return res.status(401).send({ message: "unauthorized access" })
             }
@@ -105,7 +104,6 @@ async function run() {
 
         app.post("/api/register", async (req, res) => {
             const { email, password, role, name, phoneNumber } = req.body
-            console.log(req.body);
 
             if (!req.body) {
                 return
@@ -142,7 +140,6 @@ async function run() {
             }
 
             const user = await userCollection.findOne({ email: email })
-            console.log(user);
             if (!user) {
                 return res.send({ found: false })
             }
@@ -152,6 +149,10 @@ async function run() {
             }
 
             res.send(user)
+        })
+        // logout
+        app.post("/api/logout", async (req, res) => {
+            res.clearCookie("token", { maxAge: 0 }).send({ message: "cookie removed" })
         })
 
 
@@ -241,7 +242,6 @@ async function run() {
 
             const result = await roomsCollection.find(find).skip(skip).limit(10).toArray()
             const totalData = (await roomsCollection.find(find).toArray()).length
-            console.log(totalData);
             res.send([result, totalData])
 
         })
@@ -267,8 +267,33 @@ async function run() {
                 }
                 find = replica
             }
-            console.log(find);
             const result = await roomsCollection.find(find).toArray()
+            res.send(result)
+        })
+
+
+        // update room 
+        app.put("/api/room_update", varifyToken, varifyOwner, async (req, res) => {
+            const { id } = req.query
+            console.log(id);
+            const { name, city, bedrooms, bathrooms, room_size, availability, rent_per_month, description, address } = req.body
+            const update = {
+                $set: {
+                    name: name, city: city, bedrooms: bedrooms, bathrooms: bathrooms, room_size: room_size, availability: availability, rent_per_month: rent_per_month, description: description, address: address
+                }
+            }
+
+            const find = { _id: new ObjectId(id) }
+            const result = await roomsCollection.updateOne(find, update)
+            res.send(result)
+        })
+
+
+        // delete room
+        app.delete("/api/room_delete", varifyToken, varifyOwner, async (req, res) => {
+            const { id } = req.query
+            const find = { _id: new ObjectId(id) }
+            const result = await roomsCollection.deleteOne(find)
             res.send(result)
         })
 
