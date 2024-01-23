@@ -280,11 +280,53 @@ async function run() {
                     }
                 }
             )
-            console.log("4pas");
 
             res.send(result)
         })
 
+
+        // RENTER BOOKINGs
+        app.post("/api/bookings", varifyToken, async (req, res) => {
+            const { ids } = req.body
+
+            const objectIds = ids.map(id => new ObjectId(id))
+            const find = {
+                _id: { $in: objectIds }
+            }
+
+            console.log(objectIds);
+
+            const result = await roomsCollection.find(find).toArray()
+            res.send(result)
+        })
+
+
+        // cancel booking
+        app.delete("/api/cancelBooking", varifyToken, async (req, res) => {
+            const { id } = req.query
+            const { email } = req.USER
+            const makeAvailable = await roomsCollection.updateOne({
+                _id: new ObjectId(id)
+            },
+                {
+                    $set: {
+                        isAvailable: true
+                    }
+                })
+
+            const removeLimit = await userCollection.updateOne({
+                email: email
+            }, {
+                $pull: {
+                    bookedRoom: id
+                }
+            })
+
+            const deleteRenterDetails = await renterDetailsCollection.deleteOne({
+                room_id: id
+            })
+            res.send(deleteRenterDetails)
+        })
 
         // addd rooom
         app.post("/api/add_room", varifyToken, varifyOwner, async (req, res) => {
@@ -314,7 +356,6 @@ async function run() {
         // update room 
         app.put("/api/room_update", varifyToken, varifyOwner, async (req, res) => {
             const { id } = req.query
-            console.log(id);
             const { name, city, bedrooms, bathrooms, room_size, availability, rent_per_month, description, address } = req.body
             const update = {
                 $set: {
