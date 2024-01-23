@@ -12,7 +12,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 app.use(express.json())
 app.use(cors({
-    origin: ["http://localhost:5173"],
+    origin: ["http://localhost:5173", "https://househunter-task.netlify.app"],
     credentials: true
 }))
 
@@ -147,14 +147,20 @@ async function run() {
             }
             const mathed = await bcrypt.compare(password, user?.password)
             if (!mathed) {
-                return res.send({ mathed: false })
+                return res.send({ matched: false })
             }
 
             res.send(user)
         })
         // logout
         app.post("/api/logout", async (req, res) => {
-            res.clearCookie("token", { maxAge: 0 }).send({ message: "cookie removed" })
+            res
+                .clearCookie('token', {
+                    maxAge: 0,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+                })
+                .send({ success: true })
         })
 
 
@@ -362,6 +368,12 @@ async function run() {
             res.send(result)
         })
 
+        // booking details
+        app.get("/api/owner/booking_details", varifyToken, varifyOwner, async (req, res) => {
+            const { room_id } = req.query
+            const result = await renterDetailsCollection.findOne({ room_id: room_id })
+            res.send(result)
+        })
 
         // update room 
         app.put("/api/room_update", varifyToken, varifyOwner, async (req, res) => {
