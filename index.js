@@ -294,7 +294,6 @@ async function run() {
                 _id: { $in: objectIds }
             }
 
-            console.log(objectIds);
 
             const result = await roomsCollection.find(find).toArray()
             res.send(result)
