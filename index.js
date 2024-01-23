@@ -122,7 +122,8 @@ async function run() {
                 email,
                 phoneNumber,
                 password: hashedPassword,
-                role
+                role,
+                bookedRoom: []
 
             }
 
@@ -180,7 +181,7 @@ async function run() {
 
 
 
-            let find = {}
+            let find = { isAvailable: true }
             const skip = parseInt(currentPage) * 10
 
 
@@ -247,6 +248,37 @@ async function run() {
         })
 
 
+        // room booking
+        app.post("/api/room/book", varifyToken, async (req, res) => {
+            const { email } = req.USER
+            const { room_id } = req.query
+            const updateUserBooking = {
+                $push: {
+                    bookedRoom: room_id
+                }
+            }
+
+            const { bookedRoom } = await userCollection.findOne({ email: email })
+            if (bookedRoom.length === 2) {
+                return ({ limit: true })
+            }
+
+            const addToBooked = await userCollection.updateOne({ email: email }, updateUserBooking)
+            const result = await roomsCollection.updateOne({
+                _id: new ObjectId(room_id)
+            },
+                {
+                    $set: {
+
+                        isAvailable: false
+                    }
+                }
+            )
+
+            res.send(result)
+        })
+
+
         // addd rooom
         app.post("/api/add_room", varifyToken, varifyOwner, async (req, res) => {
             const { body } = req
@@ -294,6 +326,15 @@ async function run() {
             const { id } = req.query
             const find = { _id: new ObjectId(id) }
             const result = await roomsCollection.deleteOne(find)
+            res.send(result)
+        })
+
+
+        // room detail
+        app.get("/api/room/:id", varifyToken, async (req, res) => {
+            const { id } = req.params
+            const find = { _id: new ObjectId(id) }
+            const result = await roomsCollection.findOne(find)
             res.send(result)
         })
 
