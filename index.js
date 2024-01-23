@@ -328,6 +328,17 @@ async function run() {
             res.send(deleteRenterDetails)
         })
 
+
+        // booking details
+        app.get("/api/booking_details", varifyToken, async (req, res) => {
+            const { email } = req.USER
+            const find = {
+                renter_email: email
+            }
+            const result = await renterDetailsCollection.find(find).toArray()
+            res.send(result)
+        })
+
         // addd rooom
         app.post("/api/add_room", varifyToken, varifyOwner, async (req, res) => {
             const { body } = req
