@@ -53,6 +53,7 @@ const varifyToken = (req, res, next) => {
 
 const userCollection = client.db("HouseHunter").collection("user")
 const roomsCollection = client.db("HouseHunter").collection("rooms")
+const renterDetailsCollection = client.db("HouseHunter").collection("renterDetails")
 
 async function run() {
     try {
@@ -252,6 +253,7 @@ async function run() {
         app.post("/api/room/book", varifyToken, async (req, res) => {
             const { email } = req.USER
             const { room_id } = req.query
+            const { body } = req
             const updateUserBooking = {
                 $push: {
                     bookedRoom: room_id
@@ -259,11 +261,15 @@ async function run() {
             }
 
             const { bookedRoom } = await userCollection.findOne({ email: email })
+
             if (bookedRoom.length === 2) {
-                return ({ limit: true })
+                return res.send({ limit: true })
             }
 
             const addToBooked = await userCollection.updateOne({ email: email }, updateUserBooking)
+
+            const insertRenter = await renterDetailsCollection.insertOne(body)
+
             const result = await roomsCollection.updateOne({
                 _id: new ObjectId(room_id)
             },
@@ -274,6 +280,7 @@ async function run() {
                     }
                 }
             )
+            console.log("4pas");
 
             res.send(result)
         })
